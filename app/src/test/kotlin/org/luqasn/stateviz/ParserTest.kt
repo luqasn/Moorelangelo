@@ -6,7 +6,7 @@ package org.luqasn.stateviz
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class AppTest {
+class ParserTest {
     @Test
     fun `it parses a state machine without explicit types`() {
         val machine = singleMachine(
