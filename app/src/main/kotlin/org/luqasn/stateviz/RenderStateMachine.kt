@@ -5,7 +5,7 @@ fun renderStateMachine(stateMachine: List<Statement>): String {
         state.name to "s${index}"
     }.toMap()
     val stateInfo = stateMachine.filterIsInstance<Statement.State>().map { state ->
-        val info = state.onEnter.map { "onEnter: $it" } + state.onEnter.map { "onEnter: $it" }
+        val info = state.onEnter.map { "onEnter: $it" } + state.onExit.map { "onExit: $it" }
         val infoString = info.map { it.replace("\n", "<br>").replace("\"", "'") }.joinToString("<br>")
         """state "${state.name}<br>$infoString" as ${stateToId[state.name]}"""
     }
