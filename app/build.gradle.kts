@@ -31,7 +31,6 @@ dependencies {
     // This dependency is used by the application.
     implementation("com.google.guava:guava:32.1.1-jre")
 
-    implementation("com.github.kotlinx.ast:grammar-kotlin-parser-antlr-kotlin:3e186acfa3")
     implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.9.10")
     testImplementation("com.tinder.statemachine:statemachine:0.2.0")
 }
