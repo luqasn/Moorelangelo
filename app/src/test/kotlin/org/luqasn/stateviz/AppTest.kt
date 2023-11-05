@@ -90,7 +90,7 @@ class AppTest {
     }
 
     @Test
-    fun `it parses states with values`() {
+    fun `it parses states with string values`() {
         val machine = singleMachine(
             """
             val stateMachine = StateMachine.create {
@@ -104,6 +104,25 @@ class AppTest {
 
         assertEquals(
             listOf(state("a"), state("b")),
+            machine.statements
+        )
+    }
+
+    @Test
+    fun `it parses states with Int values`() {
+        val machine = singleMachine(
+            """
+            val stateMachine = StateMachine.create {
+                state(1) {
+                }
+                state(2) {
+                }
+            }
+        """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(state("1"), state("2")),
             machine.statements
         )
     }
@@ -188,6 +207,30 @@ class AppTest {
                 event = "Event.OnMelted",
                 targetState = "State.Liquid",
                 sideEffect = "SideEffect.SomeEffect"
+            ),
+            transition
+        )
+    }
+
+    @Test
+    fun `it parses a transition with a string event, target and side-effect`() {
+        val transition = singleTransition(
+            """
+            val stateMachine = StateMachine.create {
+                state("a") {
+                    on("hello") {
+                        transitionTo("b", "some side-effect")
+                    }
+                }
+            }
+        """.trimIndent()
+        )
+
+        assertEquals(
+            Transition(
+                event = "hello",
+                targetState = "b",
+                sideEffect = "some side-effect"
             ),
             transition
         )

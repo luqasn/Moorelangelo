@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.com.intellij.testFramework.LightVirtualFile
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.plainContent
 
 private val project by lazy {
     KotlinCoreEnvironment.createForProduction(
@@ -101,7 +102,7 @@ fun evaluateState(state: String, children: Array<PsiElement>): Statement.State {
                         transitions.addAll(
                             evaluateTransitions(
                                 state,
-                                it.valueArguments.first().text,
+                                it.valueArguments.first().getArgumentExpression()!!.unquote(),
                                 it.lambdaArguments.first().getLambdaExpression()!!.bodyExpression!!.children
                             )
                         )
@@ -134,21 +135,27 @@ fun evaluateTransitions(state: String, event: String, children: Array<PsiElement
                     val args = it.valueArgumentList!!.arguments
                     val argumentExpression = args.first().getArgumentExpression()!!
 
-                    when(argumentExpression) {
-                        is KtCallExpression ->
-                        {
-                            yield(Transition(
-                                event = event,
-                                targetState = argumentExpression.calleeExpression!!.text,
-                                targetArgs = argumentExpression.valueArguments.map { it.text },
-                                sideEffect = args.elementAtOrNull(1)?.text
-                            ))
+                    when (argumentExpression) {
+                        is KtCallExpression -> {
+                            yield(
+                                Transition(
+                                    event = event,
+                                    targetState = argumentExpression.calleeExpression!!.text,
+                                    targetArgs = argumentExpression.valueArguments.map {
+                                        it.text
+                                    },
+                                    sideEffect = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
+                                )
+                            )
                         }
-                        else -> yield(Transition(
-                        event = event,
-                        targetState = argumentExpression.text,
-                        sideEffect = args.elementAtOrNull(1)?.text
-                    ))
+
+                        else -> yield(
+                            Transition(
+                                event = event,
+                                targetState = argumentExpression.unquote(),
+                                sideEffect = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
+                            )
+                        )
                     }
 
 
@@ -157,19 +164,36 @@ fun evaluateTransitions(state: String, event: String, children: Array<PsiElement
                 "dontTransition" -> {
                     val args = it.valueArgumentList!!.arguments
 
-                    yield(Transition(
-                        event = event,
-                        targetState = state,
-                        sideEffect = args.firstOrNull()?.text
-                    ))
+                    yield(
+                        Transition(
+                            event = event,
+                            targetState = state,
+                            sideEffect = args.firstOrNull()?.getArgumentExpression()?.unquote()
+                        )
+                    )
                 }
             }
         }
     }
 }
 
-
 fun parseState(expression: KtCallExpression): Statement.State {
-    val state = expression.typeArguments.first().text
-    return evaluateState(state, expression.lambdaArguments.first().getLambdaExpression()!!.bodyExpression!!.children)
+    val stateType = expression.typeArguments.firstOrNull()
+    val stateDefinition = expression.lambdaArguments.first().getLambdaExpression()!!.bodyExpression!!.children
+
+    return if (stateType != null) {
+        evaluateState(stateType.text, stateDefinition)
+    } else {
+        val firstArg = expression.valueArguments.first()
+        val state = firstArg.getArgumentExpression()!!.unquote()
+        evaluateState(state, stateDefinition)
+    }
+}
+
+private fun KtExpression.unquote(): String {
+    val state = when (this) {
+        is KtStringTemplateExpression -> this.plainContent
+        else -> this.text
+    }
+    return state
 }
