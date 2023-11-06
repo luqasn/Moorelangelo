@@ -127,58 +127,68 @@ fun evaluateState(state: String, children: Array<PsiElement>): Statement.State {
     return Statement.State(state, transitions, onEnter, onExit)
 }
 
-fun evaluateTransitions(state: String, event: String, children: Array<PsiElement>): List<Transition> {
+fun evaluateTransitions(state: String, event: String, children: Array<PsiElement>, conditions: List<Condition> = emptyList()): List<Transition> {
     val sideEffectsForAll = mutableListOf<PsiElement>()
     val transitions = mutableListOf<Transition>()
 
-    children.forEach {
-        val call = it as? KtCallExpression
-        when (val callee = call?.calleeExpression) {
-            is KtNameReferenceExpression -> when (callee.getReferencedNameAsName().asString()) {
-                "transitionTo" -> {
-                    val args = call.valueArgumentList!!.arguments
-                    val argumentExpression = args.first().getArgumentExpression()!!
-                    val sideEffectFromArgs = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
+    children.forEach { element ->
+        when (element) {
+            is KtCallExpression ->
+                when (val callee = element.calleeExpression) {
+                    is KtNameReferenceExpression -> when (callee.getReferencedNameAsName().asString()) {
+                        "transitionTo" -> {
+                            val args = element.valueArgumentList!!.arguments
+                            val argumentExpression = args.first().getArgumentExpression()!!
+                            val sideEffectFromArgs = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
 
-                    when (argumentExpression) {
-                        is KtCallExpression -> {
+                            when (argumentExpression) {
+                                is KtCallExpression -> {
+                                    transitions.add(
+                                        Transition(
+                                            event = event,
+                                            targetState = argumentExpression.calleeExpression!!.text,
+                                            targetArgs = argumentExpression.valueArguments.map {
+                                                it.text
+                                            },
+                                            sideEffect = sideEffectFromArgs,
+                                            conditions = conditions,
+                                        )
+                                    )
+                                }
+
+                                else -> transitions.add(
+                                    Transition(
+                                        event = event,
+                                        targetState = argumentExpression.unquote(),
+                                        sideEffect = sideEffectFromArgs,
+                                        conditions = conditions,
+                                    )
+                                )
+                            }
+                        }
+
+                        "dontTransition" -> {
+                            val args = element.valueArgumentList!!.arguments
+
                             transitions.add(
                                 Transition(
                                     event = event,
-                                    targetState = argumentExpression.calleeExpression!!.text,
-                                    targetArgs = argumentExpression.valueArguments.map {
-                                        it.text
-                                    },
-                                    sideEffect = sideEffectFromArgs
+                                    targetState = state,
+                                    sideEffect = args.firstOrNull()?.getArgumentExpression()?.unquote(),
+                                    conditions = conditions,
                                 )
                             )
                         }
 
-                        else -> transitions.add(
-                            Transition(
-                                event = event,
-                                targetState = argumentExpression.unquote(),
-                                sideEffect = sideEffectFromArgs
-                            )
-                        )
+                        else -> sideEffectsForAll.add(element)
                     }
-
-
                 }
-
-                "dontTransition" -> {
-                    val args = call.valueArgumentList!!.arguments
-
-                    transitions.add(
-                        Transition(
-                            event = event,
-                            targetState = state,
-                            sideEffect = args.firstOrNull()?.getArgumentExpression()?.unquote()
-                        )
-                    )
+            is KtIfExpression -> {
+                val condition = element.condition
+                transitions.addAll(evaluateTransitions(state, event, element.then!!.children, conditions + listOf(Condition.If(condition!!.text))))
+                element.`else`?.let {
+                    transitions.addAll(evaluateTransitions(state, event, it.children, conditions + listOf(Condition.IfNot(condition!!.text))))
                 }
-
-                else -> sideEffectsForAll.add(it)
             }
         }
     }

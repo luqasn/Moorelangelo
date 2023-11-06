@@ -358,6 +358,46 @@ class ParserTest {
             transition
         )
     }
+
+    @Test
+    fun `it supports if-else around transitions`() {
+        val state = singleState(
+            """
+            val stateMachine = StateMachine.create {
+                state<State.Solid> {
+                    on<Event.OnMelted> {
+                        commonSideEffect()
+                        if(something()) {
+                            liquify()
+                            transitionTo(State.Liquid)
+                        } else {
+                            boring()
+                            dontTransition()
+                        }
+                    }
+                }
+            }
+        """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(
+                Transition(
+                    event = "Event.OnMelted",
+                    targetState = "State.Liquid",
+                    conditions = listOf(Condition.If("something()")),
+                    sideEffect = "commonSideEffect()\nliquify()",
+                ),
+                Transition(
+                    event = "Event.OnMelted",
+                    targetState = "State.Solid",
+                    conditions = listOf(Condition.IfNot("something()")),
+                    sideEffect = "commonSideEffect()\nboring()",
+                ),
+            ),
+            state.transitions
+        )
+    }
 }
 
 private fun singleMachine(code: String) = parse(code).single()

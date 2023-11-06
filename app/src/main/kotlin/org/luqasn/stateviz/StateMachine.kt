@@ -13,5 +13,17 @@ sealed class Statement {
     ) : Statement()
 }
 
-data class Transition(val event: String, val targetState: String, val targetArgs: List<String> = emptyList(), val sideEffect: String? = null)
+data class Transition(
+    val event: String,
+    val targetState: String,
+    val targetArgs: List<String> = emptyList(),
+    val sideEffect: String? = null,
+    val conditions: List<Condition> = emptyList()
+)
 
+sealed class Condition {
+    abstract val expression: String
+
+    data class If(override val expression: String) : Condition()
+    data class IfNot(override val expression: String) : Condition()
+}
