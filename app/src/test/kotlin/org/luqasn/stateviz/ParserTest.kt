@@ -332,6 +332,32 @@ class ParserTest {
             transition
         )
     }
+
+    @Test
+    fun `it considers extra stuff in the event handler as side effects`() {
+        val transition = singleTransition(
+            """
+            val stateMachine = StateMachine.create {
+                state<State.Solid> {
+                    on<Event.OnMelted> {
+                        doSomething()
+                        transitionTo(State.Liquid)
+                        doSomethingElse()
+                    }
+                }
+            }
+        """.trimIndent()
+        )
+
+        assertEquals(
+            Transition(
+                event = "Event.OnMelted",
+                targetState = "State.Liquid",
+                sideEffect = "doSomething()\ndoSomethingElse()"
+            ),
+            transition
+        )
+    }
 }
 
 private fun singleMachine(code: String) = parse(code).single()

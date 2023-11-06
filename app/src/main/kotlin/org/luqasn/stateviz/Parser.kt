@@ -127,33 +127,38 @@ fun evaluateState(state: String, children: Array<PsiElement>): Statement.State {
     return Statement.State(state, transitions, onEnter, onExit)
 }
 
-fun evaluateTransitions(state: String, event: String, children: Array<PsiElement>) = sequence {
-    children.filterIsInstance<KtCallExpression>().forEach {
-        when (val call = it.calleeExpression) {
-            is KtNameReferenceExpression -> when (call.getReferencedNameAsName().asString()) {
+fun evaluateTransitions(state: String, event: String, children: Array<PsiElement>): List<Transition> {
+    val sideEffectsForAll = mutableListOf<PsiElement>()
+    val transitions = mutableListOf<Transition>()
+
+    children.forEach {
+        val call = it as? KtCallExpression
+        when (val callee = call?.calleeExpression) {
+            is KtNameReferenceExpression -> when (callee.getReferencedNameAsName().asString()) {
                 "transitionTo" -> {
-                    val args = it.valueArgumentList!!.arguments
+                    val args = call.valueArgumentList!!.arguments
                     val argumentExpression = args.first().getArgumentExpression()!!
+                    val sideEffectFromArgs = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
 
                     when (argumentExpression) {
                         is KtCallExpression -> {
-                            yield(
+                            transitions.add(
                                 Transition(
                                     event = event,
                                     targetState = argumentExpression.calleeExpression!!.text,
                                     targetArgs = argumentExpression.valueArguments.map {
                                         it.text
                                     },
-                                    sideEffect = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
+                                    sideEffect = sideEffectFromArgs
                                 )
                             )
                         }
 
-                        else -> yield(
+                        else -> transitions.add(
                             Transition(
                                 event = event,
                                 targetState = argumentExpression.unquote(),
-                                sideEffect = args.elementAtOrNull(1)?.getArgumentExpression()?.unquote()
+                                sideEffect = sideEffectFromArgs
                             )
                         )
                     }
@@ -162,9 +167,9 @@ fun evaluateTransitions(state: String, event: String, children: Array<PsiElement
                 }
 
                 "dontTransition" -> {
-                    val args = it.valueArgumentList!!.arguments
+                    val args = call.valueArgumentList!!.arguments
 
-                    yield(
+                    transitions.add(
                         Transition(
                             event = event,
                             targetState = state,
@@ -172,8 +177,23 @@ fun evaluateTransitions(state: String, event: String, children: Array<PsiElement
                         )
                     )
                 }
+
+                else -> sideEffectsForAll.add(it)
             }
         }
+    }
+
+    return transitions.map {
+        it.copy(
+            sideEffect = listOfNotNull(
+                it.sideEffect,
+                *sideEffectsForAll.map { it.text }.toTypedArray()
+            ).joinToString("\n").let {
+                when (it) {
+                    "" -> null
+                    else -> it
+                }
+            })
     }
 }
 
