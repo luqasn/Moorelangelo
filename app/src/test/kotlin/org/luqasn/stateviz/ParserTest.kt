@@ -398,6 +398,36 @@ class ParserTest {
             state.transitions
         )
     }
+
+    @Test
+    fun `it detects configuration in extension methods`() {
+        val state = singleState(
+            """
+            val stateMachine = StateMachine.create<A, B, C> {
+                state<Playing> {
+                    onPauseCommandTransitionToPause()
+                }
+            }
+            private fun StateMachine.GraphBuilder<A, B, C>.StateDefinitionBuilder<A>.onPauseCommandTransitionToPause() {
+                on<Pause> {
+                    transitionTo(
+                        Pause()
+                    )
+                }
+            }
+        """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(
+                Transition(
+                    event = "Pause",
+                    targetState = "Pause",
+                ),
+            ),
+            state.transitions
+        )
+    }
 }
 
 private fun singleMachine(code: String) = parse(code).single()
