@@ -7,7 +7,7 @@
 
 plugins {
     // Apply the org.jetbrains.kotlin.jvm Plugin to add support for Kotlin.
-    id("org.jetbrains.kotlin.jvm") version "1.9.10"
+    id("org.jetbrains.kotlin.jvm") version "1.9.20"
 
     // Apply the application plugin to add support for building a CLI application in Java.
     application
@@ -31,7 +31,7 @@ dependencies {
     // This dependency is used by the application.
     implementation("com.google.guava:guava:32.1.1-jre")
 
-    implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.9.10")
+    implementation("org.jetbrains.kotlin:kotlin-compiler:1.9.20")
     testImplementation("com.tinder.statemachine:statemachine:0.2.0")
 }
 
